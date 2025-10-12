@@ -1,0 +1,58 @@
+{
+  "name": "reddit-faceit-ai",
+  "version": "1.0.0",
+  "description": "Reddit FACEIT AI Analysis Bot for Slack Integration",
+  "type": "module",
+  "main": "src/schedule.js",
+  "scripts": {
+    "initdb": "node src/initdb.js",
+    "init-channels": "node src/init_channel_tables.js",
+    "init-moderator-tracking": "node src/init_moderator_tracking.js",
+    "bulk-fetch": "node src/bulk_fetch_reddit.js",
+    "fetch-recent": "node src/realistic_fetch_reddit.js",
+    "reset-db": "node src/reset_database.js",
+    "reset-data": "node src/reset_data_only.js",
+    "clear-analysis": "node src/clear_analysis_only.js",
+    "process-moderator-responses": "node src/process_moderator_responses.js",
+    "moderator-stats": "node src/moderator_stats.js",
+    "daily": "node src/run_daily.js",
+    "weekly": "node src/run_weekly.js",
+    "monthly": "node src/run_monthly.js",
+    "quarterly": "node src/run_quarterly.js",
+    "schedule": "node src/schedule.js",
+    "slack-bot": "node src/slack_bot.js",
+    "test-png": "node src/test-png-report.js",
+    "test-comprehensive": "node src/test-comprehensive-reports.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@google-cloud/aiplatform": "^5.7.0",
+    "@google-cloud/vertexai": "^1.10.0",
+    "@google/genai": "^1.20.0",
+    "@google/generative-ai": "^0.24.1",
+    "@slack/bolt": "^4.4.0",
+    "@slack/web-api": "^7.0.2",
+    "axios": "^1.6.2",
+    "dayjs": "^1.11.18",
+    "dotenv": "^16.3.1",
+    "node-cron": "^3.0.3",
+    "p-limit": "^5.0.0",
+    "pg": "^8.11.3",
+    "puppeteer": "^24.22.3",
+    "snoowrap": "^1.23.0",
+    "zod": "^3.22.4"
+  },
+  "keywords": [
+    "reddit",
+    "faceit",
+    "ai",
+    "slack",
+    "analysis",
+    "groq"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

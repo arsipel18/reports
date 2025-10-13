@@ -16,7 +16,9 @@ class SlackBot {
       token: process.env.SLACK_BOT_TOKEN,
       signingSecret: process.env.SLACK_SIGNING_SECRET,
       socketMode: true,
-      appToken: process.env.SLACK_APP_TOKEN
+      appToken: process.env.SLACK_APP_TOKEN,
+      processBeforeResponse: false, // CRITICAL: prevent dispatch_failed
+      logLevel: process.env.SLACK_LOG_LEVEL || 'info'
     });
 
     this.commands = new SlackCommands();
@@ -29,18 +31,34 @@ class SlackBot {
    * Setup event handlers for the Slack bot
    */
   setupEventHandlers() {
-    // Handle /report slash command
-    this.app.command('/report', async ({ command, ack, respond }) => {
-      // 1) IMMEDIATELY ACK
-      await ack();
-      
-      // 2) Quick feedback (ephemeral)
-      await respond({ text: "📊 Generating report...", response_type: "ephemeral" });
+    // DIAGNOSTIC: Ping command for testing ACK speed
+    this.app.command('/ping', async ({ ack, respond, logger }) => {
+      const t0 = Date.now();
+      try {
+        await ack();
+        const ackTime = Date.now() - t0;
+        logger.info(`ACK in ${ackTime}ms`);
+      } catch (e) {
+        logger.error('ACK failed', e);
+      }
+    });
 
-      // 3) Move heavy work to background
-      setImmediate(async () => {
-        try {
-          console.log(`📱 Received /report command: "${command.text}" from ${command.user_name} in ${command.channel_name}`);
+    // Handle /report slash command
+    this.app.command('/report', async ({ command, ack, respond, logger }) => {
+      const t0 = Date.now();
+      try {
+        // 1) IMMEDIATELY ACK
+        await ack();
+        const ackTime = Date.now() - t0;
+        logger.info(`/report ACK in ${ackTime}ms`);
+        
+        // 2) Quick feedback (ephemeral)
+        await respond({ text: "📊 Generating report...", response_type: "ephemeral" });
+
+        // 3) Move heavy work to background
+        setImmediate(async () => {
+          try {
+            console.log(`📱 Received /report command: "${command.text}" from ${command.user_name} in ${command.channel_name}`);
           
           // Check if channel is configured
           const channelConfig = await this.channelConfig.getChannelConfig(command.channel_id);
@@ -85,15 +103,18 @@ class SlackBot {
             await respond(response);
           }
           // Report generated successfully - no additional message needed
-          
-        } catch (error) {
-          console.error('❌ Error handling /report command:', error);
-          await respond({
-            text: `❌ Error generating report: ${error.message}`,
-            response_type: 'ephemeral'
-          });
-        }
-      });
+            
+          } catch (error) {
+            console.error('❌ Error handling /report command:', error);
+            await respond({
+              text: `❌ Error generating report: ${error.message}`,
+              response_type: 'ephemeral'
+            });
+          }
+        });
+      } catch (e) {
+        logger.error('/report ACK failed', e);
+      }
     });
 
     // Handle /help command

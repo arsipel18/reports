@@ -31,142 +31,169 @@ class SlackBot {
   setupEventHandlers() {
     // Handle /report slash command
     this.app.command('/report', async ({ command, ack, respond }) => {
+      // 1) IMMEDIATELY ACK
       await ack();
       
-      try {
-        console.log(`📱 Received /report command: "${command.text}" from ${command.user_name} in ${command.channel_name}`);
-        
-        // Check if channel is configured
-        const channelConfig = await this.channelConfig.getChannelConfig(command.channel_id);
-        
-        if (!channelConfig) {
+      // 2) Quick feedback (ephemeral)
+      await respond({ text: "📊 Generating report...", response_type: "ephemeral" });
+
+      // 3) Move heavy work to background
+      setImmediate(async () => {
+        try {
+          console.log(`📱 Received /report command: "${command.text}" from ${command.user_name} in ${command.channel_name}`);
+          
+          // Check if channel is configured
+          const channelConfig = await this.channelConfig.getChannelConfig(command.channel_id);
+          
+          if (!channelConfig) {
+            await respond({
+              text: `❌ Channel not configured. Use \`/setup\` to configure this channel first.`,
+              response_type: 'ephemeral'
+            });
+            return;
+          }
+
+          // Get channel-specific report preferences
+          const reportPrefs = await this.channelConfig.getChannelReportPreferences(command.channel_id, 'manual');
+          
+          // Log the activity
+          await this.channelConfig.logChannelActivity(command.channel_id, command.user_id, 'manual_report_requested', {
+            command_text: command.text,
+            user_name: command.user_name
+          });
+          
+          const result = await this.commands.handleReportCommand(
+            command.text, 
+            command.user_id, 
+            command.channel_id,
+            reportPrefs
+          );
+          
+          if (result) {
+            const response = {
+              response_type: 'in_channel'
+            };
+            
+            if (result.text) {
+              response.text = result.text;
+            }
+            
+            if (result.blocks) {
+              response.blocks = result.blocks;
+            }
+            
+            await respond(response);
+          }
+          // Report generated successfully - no additional message needed
+          
+        } catch (error) {
+          console.error('❌ Error handling /report command:', error);
           await respond({
-            text: `❌ Channel not configured. Use \`/setup\` to configure this channel first.`,
+            text: `❌ Error generating report: ${error.message}`,
             response_type: 'ephemeral'
           });
-          return;
         }
-
-        // Get channel-specific report preferences
-        const reportPrefs = await this.channelConfig.getChannelReportPreferences(command.channel_id, 'manual');
-        
-        // Log the activity
-        await this.channelConfig.logChannelActivity(command.channel_id, command.user_id, 'manual_report_requested', {
-          command_text: command.text,
-          user_name: command.user_name
-        });
-        
-        const result = await this.commands.handleReportCommand(
-          command.text, 
-          command.user_id, 
-          command.channel_id,
-          reportPrefs
-        );
-        
-        if (result) {
-          const response = {
-            response_type: 'in_channel'
-          };
-          
-          if (result.text) {
-            response.text = result.text;
-          }
-          
-          if (result.blocks) {
-            response.blocks = result.blocks;
-          }
-          
-          await respond(response);
-        }
-        // Report generated successfully - no additional message needed
-        
-      } catch (error) {
-        console.error('❌ Error handling /report command:', error);
-        await respond({
-          text: `❌ Error generating report: ${error.message}`,
-          response_type: 'ephemeral'
-        });
-      }
+      });
     });
 
     // Handle /help command
     this.app.command('/help', async ({ command, ack, respond }) => {
+      // 1) IMMEDIATELY ACK
       await ack();
       
-      const helpText = `🤖 Reddit FACEIT App Help\n\n` +
-        `Available Commands:\n` +
-        `• \`/report <period> [categories]\` - Generate analysis reports\n` +
-        `• \`/setup\` - Configure this channel\n` +
-        `• \`/config\` - View/modify channel configuration\n` +
-        `• \`/help\` - Show this help message\n\n` +
-        `Report Examples:\n` +
-        `• \`/report daily\` - Today's posts\n` +
-        `• \`/report weekly cheating\` - Cheating posts this week\n` +
-        `• \`/report monthly verification 2fa\` - Verification issues this month\n\n` +
-        `Configuration Examples:\n` +
-        `• \`/config enable daily\` - Enable daily reports\n` +
-        `• \`/config add-daily cheating cheaters smurfs\` - Add daily cheating report\n` +
-        `• \`/config remove-daily cheating\` - Remove daily cheating report\n` +
-        `• \`/config help\` - Detailed configuration help\n\n` +
-        `Periods: daily, weekly, monthly, quarterly, yearly\n\n` +
-        `Categories: account_recovery, verification, 2fa, matchmaking_issues, game_registration_issues, afk_leaver_bans, griefing, verbal_abuse, smurfs, cheaters, anti_cheat, subscriptions, faceit_shop, technical_client, platform_website, steam_issues_game_update, tournaments_leagues, esea, mission, moderation_community, feature_request, track_stats, ow2, dota2, legal_issues_gdpr, other`;
+      // 2) Quick feedback (ephemeral)
+      await respond({ text: "📚 Loading help information...", response_type: "ephemeral" });
 
-      await respond({
-        text: helpText,
-        response_type: 'ephemeral'
+      // 3) Move work to background
+      setImmediate(async () => {
+        const helpText = `🤖 Reddit FACEIT App Help\n\n` +
+          `Available Commands:\n` +
+          `• \`/report <period> [categories]\` - Generate analysis reports\n` +
+          `• \`/setup\` - Configure this channel\n` +
+          `• \`/config\` - View/modify channel configuration\n` +
+          `• \`/help\` - Show this help message\n\n` +
+          `Report Examples:\n` +
+          `• \`/report daily\` - Today's posts\n` +
+          `• \`/report weekly cheating\` - Cheating posts this week\n` +
+          `• \`/report monthly verification 2fa\` - Verification issues this month\n\n` +
+          `Configuration Examples:\n` +
+          `• \`/config enable daily\` - Enable daily reports\n` +
+          `• \`/config add-daily cheating cheaters smurfs\` - Add daily cheating report\n` +
+          `• \`/config remove-daily cheating\` - Remove daily cheating report\n` +
+          `• \`/config help\` - Detailed configuration help\n\n` +
+          `Periods: daily, weekly, monthly, quarterly, yearly\n\n` +
+          `Categories: account_recovery, verification, 2fa, matchmaking_issues, game_registration_issues, afk_leaver_bans, griefing, verbal_abuse, smurfs, cheaters, anti_cheat, subscriptions, faceit_shop, technical_client, platform_website, steam_issues_game_update, tournaments_leagues, esea, mission, moderation_community, feature_request, track_stats, ow2, dota2, legal_issues_gdpr, other`;
+
+        await respond({
+          text: helpText,
+          response_type: 'ephemeral'
+        });
       });
     });
 
     // Handle /setup command
     this.app.command('/setup', async ({ command, ack, respond }) => {
+      // 1) IMMEDIATELY ACK
       await ack();
       
-      try {
-        console.log(`📱 Received /setup command from ${command.user_name} in ${command.channel_name}`);
-        
-        // Register the channel
-        await this.channelConfig.registerChannel(
-          command.channel_id,
-          command.channel_name,
-          command.team_id,
-          command.user_id
-        );
+      // 2) Quick feedback (ephemeral)
+      await respond({ text: "🛠️ Setting up channel...", response_type: "ephemeral" });
 
-        const setupText = `🎉 Channel Setup Complete!\n\n` +
-          `Channel: #${command.channel_name}\n` +
-          `Admin: <@${command.user_id}>\n\n` +
-          `What's configured:\n` +
-          `• ✅ All report types enabled (daily, weekly, monthly, quarterly)\n` +
-          `• ✅ Scheduled reports will be sent here\n` +
-          `• ✅ Manual reports work with \`/report\` command\n` +
-          `• ✅ Error notifications enabled\n\n` +
-          `Next steps:\n` +
-          `• Use \`/config\` to view current settings\n` +
-          `• Use \`/report daily\` to test report generation\n` +
-          `• Use \`/config add-daily cheating\` to add multiple daily reports`;
+      // 3) Move heavy work to background
+      setImmediate(async () => {
+        try {
+          console.log(`📱 Received /setup command from ${command.user_name} in ${command.channel_name}`);
+          
+          // Register the channel
+          await this.channelConfig.registerChannel(
+            command.channel_id,
+            command.channel_name,
+            command.team_id,
+            command.user_id
+          );
 
-        await respond({
-          text: setupText,
-          response_type: 'in_channel'
-        });
+          const setupText = `🎉 Channel Setup Complete!\n\n` +
+            `Channel: #${command.channel_name}\n` +
+            `Admin: <@${command.user_id}>\n\n` +
+            `What's configured:\n` +
+            `• ✅ All report types enabled (daily, weekly, monthly, quarterly)\n` +
+            `• ✅ Scheduled reports will be sent here\n` +
+            `• ✅ Manual reports work with \`/report\` command\n` +
+            `• ✅ Error notifications enabled\n\n` +
+            `Next steps:\n` +
+            `• Use \`/config\` to view current settings\n` +
+            `• Use \`/report daily\` to test report generation\n` +
+            `• Use \`/config add-daily cheating\` to add multiple daily reports`;
 
-      } catch (error) {
-        console.error('❌ Error handling /setup command:', error);
-        await respond({
-          text: `❌ Setup failed: ${error.message}`,
-          response_type: 'ephemeral'
-        });
-      }
+          await respond({
+            text: setupText,
+            response_type: 'in_channel'
+          });
+
+        } catch (error) {
+          console.error('❌ Error handling /setup command:', error);
+          await respond({
+            text: `❌ Setup failed: ${error.message}`,
+            response_type: 'ephemeral'
+          });
+        }
+      });
     });
 
     // Handle /config command
     this.app.command('/config', async ({ command, ack, respond }) => {
+      // 1) IMMEDIATELY ACK
       await ack();
       
-      try {
-        console.log(`📱 Received /config command from ${command.user_name}`);
-        
-        const channelConfig = await this.channelConfig.getChannelConfig(command.channel_id);
+      // 2) Quick feedback (ephemeral)
+      await respond({ text: "⚙️ Loading configuration...", response_type: "ephemeral" });
+
+      // 3) Move heavy work to background
+      setImmediate(async () => {
+        try {
+          console.log(`📱 Received /config command from ${command.user_name}`);
+          
+          const channelConfig = await this.channelConfig.getChannelConfig(command.channel_id);
         
         if (!channelConfig) {
           await respond({
@@ -444,13 +471,14 @@ class SlackBot {
             response_type: 'ephemeral'
           });
         }
-      } catch (error) {
-        console.error('❌ Error handling /config command:', error);
-        await respond({
-          text: `❌ Configuration error: ${error.message}`,
-          response_type: 'ephemeral'
-        });
-      }
+        } catch (error) {
+          console.error('❌ Error handling /config command:', error);
+          await respond({
+            text: `❌ Configuration error: ${error.message}`,
+            response_type: 'ephemeral'
+          });
+        }
+      });
     });
 
     // Handle app mentions

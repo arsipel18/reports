@@ -1,5 +1,5 @@
-// Puppeteer configuration for headless Linux servers
-// This provides robust Chrome launch options for different Linux environments
+import fs from 'fs';
+import puppeteer from 'puppeteer';
 
 export function getPuppeteerLaunchOptions() {
   // Base arguments that work on most Linux servers
@@ -64,6 +64,26 @@ export function getPuppeteerLaunchOptions() {
     handleSIGHUP: false
   };
 
+  // Use system Chrome if available (Amazon Linux)
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    config.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  } else {
+    // Check for common Chrome paths
+    const chromePaths = [
+      '/usr/bin/google-chrome',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+      '/opt/google/chrome/chrome'
+    ];
+    
+    for (const path of chromePaths) {
+      if (fs.existsSync(path)) {
+        config.executablePath = path;
+        break;
+      }
+    }
+  }
+
   // Add memory management for low-memory servers
   if (process.env.NODE_ENV === 'production' || process.env.LOW_MEMORY) {
     config.args.push(
@@ -94,7 +114,7 @@ export function getPuppeteerLaunchOptions() {
 
 // Alternative configuration for systems with very limited resources
 export function getMinimalPuppeteerConfig() {
-  return {
+  const config = {
     headless: true,
     args: [
       "--no-sandbox",
@@ -130,6 +150,28 @@ export function getMinimalPuppeteerConfig() {
     timeout: 60000, // Longer timeout for minimal config
     protocolTimeout: 60000
   };
+
+  // Use system Chrome if available (Amazon Linux)
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    config.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  } else {
+    // Check for common Chrome paths
+    const chromePaths = [
+      '/usr/bin/google-chrome',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+      '/opt/google/chrome/chrome'
+    ];
+    
+    for (const path of chromePaths) {
+      if (fs.existsSync(path)) {
+        config.executablePath = path;
+        break;
+      }
+    }
+  }
+
+  return config;
 }
 
 // Error handling wrapper for Puppeteer operations

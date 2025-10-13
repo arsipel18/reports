@@ -1,6 +1,7 @@
 // report-image-bi-dense.js  — Dense Tableau-like dashboard → single PNG
 import puppeteer from "puppeteer";
 import dayjs from "dayjs";
+import { getPuppeteerLaunchOptions, safePuppeteerLaunch } from "./puppeteer-config.js";
 
 export async function renderReportPNG(data) {
   const {
@@ -490,13 +491,38 @@ export async function renderReportPNG(data) {
 </div>
 `;
 
-  const browser = await puppeteer.launch({ headless:true, args:["--no-sandbox","--disable-setuid-sandbox"] });
-  const page = await browser.newPage();
-  await page.setViewport({ width:1920, height:1080, deviceScaleFactor:2 });
-  await page.setContent(html, { waitUntil:"domcontentloaded" });
-  const png = await page.screenshot({ type:"png" });
-  await browser.close();
-  return png;
+  const launchOptions = getPuppeteerLaunchOptions();
+  
+  return await safePuppeteerLaunch(launchOptions, async (browser) => {
+    const page = await browser.newPage();
+    
+    // Set viewport for consistent rendering
+    await page.setViewport({ 
+      width: 1920, 
+      height: 1080, 
+      deviceScaleFactor: 2 
+    });
+    
+    // Set content with timeout
+    await page.setContent(html, { 
+      waitUntil: "domcontentloaded",
+      timeout: 30000 
+    });
+    
+    // Take screenshot with optimized settings
+    const png = await page.screenshot({ 
+      type: "png",
+      fullPage: false,
+      clip: {
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1080
+      }
+    });
+    
+    return png;
+  });
 }
 
 /* ---- helpers ---- */

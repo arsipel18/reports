@@ -58,6 +58,7 @@ const createTables = async () => {
         intent TEXT CHECK (intent IN ('help','comment')),
         target TEXT CHECK (target IN ('faceit','not_faceit')),
         sentiment TEXT CHECK (sentiment IN ('pos','neg','neu')),
+        sentiment_before_comment TEXT CHECK (sentiment_before_comment IN ('pos','neg','neu')), -- stores original sentiment before post author's positive comment
         category TEXT CHECK (category IN (
           'account_recovery','verification','2fa','matchmaking_issues',
           'afk_leaver_bans','smurfs','cheaters','customer_care',

@@ -77,8 +77,8 @@ class ReportCreator {
       // Get intent distribution (filtered)
       const intents = await this.getIntentDistribution(timeRange.start, timeRange.end, categories);
       
-      // Get top post by engagement (reduced to 1)
-      const topPosts = await this.getTopPosts(timeRange.start, timeRange.end, 1, categories);
+      // Get top posts by engagement (increased to 8 for PNG display)
+      const topPosts = await this.getTopPosts(timeRange.start, timeRange.end, 8, categories);
       
       // Get top 2 engaged posts with their comments and moderator replies
       const top2EngagedPosts = await this.getTop2EngagedPostsWithComments(timeRange.start, timeRange.end, categories);
@@ -673,6 +673,9 @@ class ReportCreator {
    * Get moderator response analysis
    */
   async getModeratorAnalysis(startTime, endTime, categories = null) {
+    // For filtered reports, we need to count moderator responses differently
+    // Total posts should be filtered by category, but moderator responses should be counted globally
+    
     let queryText = `
       SELECT 
         COUNT(DISTINCT p.id) as total_posts,
@@ -693,14 +696,39 @@ class ReportCreator {
       params.push(categories);
     }
     
+    // For filtered reports, we need a separate query to get moderator stats for filtered categories only
+    let filteredModeratorQuery = `
+      SELECT 
+        COUNT(DISTINCT mr.moderator_username) as filtered_unique_moderators,
+        COUNT(mr.id) as filtered_total_moderator_responses
+      FROM moderator_responses mr
+      JOIN posts p ON mr.post_id = p.id
+      JOIN analyses_post ap ON p.id = ap.post_id
+      WHERE p.created_utc >= $1 AND p.created_utc <= $2
+        AND ap.category = ANY($3)
+    `;
+    
+    const filteredParams = [startTime, endTime];
+    
     const result = await query(queryText, params);
     const row = result.rows[0];
     
     const totalPosts = parseInt(row.total_posts) || 0;
     const postsWithModeratorResponse = parseInt(row.posts_with_moderator_response) || 0;
     const avgFirstResponseTimeSeconds = parseFloat(row.avg_first_response_time_seconds) || 0;
-    const uniqueModerators = parseInt(row.unique_moderators) || 0;
-    const totalModeratorResponses = parseInt(row.total_moderator_responses) || 0;
+    
+    // For filtered reports, get moderator stats for filtered categories only
+    let uniqueModerators = parseInt(row.unique_moderators) || 0;
+    let totalModeratorResponses = parseInt(row.total_moderator_responses) || 0;
+    
+    if (categories && categories.length > 0) {
+      // Get moderator stats for filtered categories only
+      filteredParams.push(categories);
+      const filteredResult = await query(filteredModeratorQuery, filteredParams);
+      const filteredRow = filteredResult.rows[0];
+      uniqueModerators = parseInt(filteredRow.filtered_unique_moderators) || 0;
+      totalModeratorResponses = parseInt(filteredRow.filtered_total_moderator_responses) || 0;
+    }
     
     const moderatorResponsePercentage = totalPosts > 0 ? Math.round((postsWithModeratorResponse / totalPosts) * 100) : 0;
     const avgFirstResponseTimeMinutes = Math.round(avgFirstResponseTimeSeconds / 60);

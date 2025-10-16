@@ -17,6 +17,8 @@ export function adaptReportDataForPNG(reportCreatorData) {
     categories,
     sentiments,
     topPosts,
+    top2EngagedPosts, // Get the top 2 engaged posts for PNG
+    top5ModeratorCommenters, // Get moderator data
     commentExamples,
     moderatorAnalysis,
     filters,
@@ -41,6 +43,18 @@ export function adaptReportDataForPNG(reportCreatorData) {
   // Generate missing categories sentiment data
   const categoriesSentiment = generateCategoriesSentimentData(posts, categories);
 
+  // Format moderator data for PNG renderer
+  const formattedModeratorAnalysis = {
+    ...moderatorAnalysis,
+    topModerators: top5ModeratorCommenters?.map(mod => ({
+      username: mod.moderator_username,
+      postsHandled: mod.posts_handled,
+      avgScore: Math.round(mod.avg_comment_score),
+      totalComments: mod.total_comments,
+      avgResponseTime: mod.avg_response_time_minutes
+    })) || []
+  };
+
   return {
     period,
     timeRange,
@@ -48,9 +62,9 @@ export function adaptReportDataForPNG(reportCreatorData) {
     categories,
     sentiments,
     categoriesSentiment,
-    topPosts,
+    topPosts: top2EngagedPosts || topPosts, // Use top2EngagedPosts if available, fallback to topPosts
     commentExamples,
-    moderatorAnalysis,
+    moderatorAnalysis: formattedModeratorAnalysis,
     keywords,
     timeseries,
     categorySeries,

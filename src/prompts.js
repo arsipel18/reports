@@ -66,7 +66,7 @@ CRITICAL CLASSIFICATION RULES - FOLLOW EXACTLY:
    ['account_recovery','verification','2fa','matchmaking_issues','game_registration_issues','afk_leaver_bans','griefing','verbal_abuse','smurfs','cheaters','anti_cheat','subscriptions','faceit_shop','technical_client','platform_website','steam_issues_game_update','tournaments_leagues','esea','mission','moderation_community','feature_request','track_stats','ow2','dota2','legal_issues_gdpr','other']
 
    CATEGORY DEFINITIONS:
-   - account_recovery: Forgot email/password or tries to recover account
+   - account_recovery: Forgot email/password or tries to recover account (NEVER for banned accounts)
    - verification: ID verification issues
    - 2fa: Two-factor authentication setup/issues
    - matchmaking_issues: Queue times, balance complaints
@@ -74,7 +74,7 @@ CRITICAL CLASSIFICATION RULES - FOLLOW EXACTLY:
    - afk_leaver_bans: Penalties for leaving matches or being AFK
    - griefing: Any trolling or team grief actions like team damage, not playing with the team
    - verbal_abuse: Verbal abuse, harassment, toxic behavior reports
-   - smurfs: Donk, new accounts, low matches played but performing well, second accounts
+   - smurfs: Donk, new accounts, low matches played but performing well, second accounts, multiple accounts, "main account" discussions
    - cheaters: Reports or discussions about cheating/suspicious players
    - anti_cheat: Technical issues about anti-cheat AC
    - subscriptions: Subscription-related issues and billing
@@ -92,6 +92,9 @@ CRITICAL CLASSIFICATION RULES - FOLLOW EXACTLY:
    - dota2: Dota2 game related posts 
    - legal_issues_gdpr: Legal issues, GDPR requests
 
+CRITICAL CATEGORIZATION RULES:
+- BANNED ACCOUNTS: If user mentions being banned (permanent ban, temporary ban, etc.) and doesn't specify the type of ban, use 'other' category. Account recovery is NEVER for banned accounts.
+- MULTIPLE ACCOUNTS: If user mentions multiple accounts, "main account", "second account", or similar, use 'smurfs' category.
 CONTENT REQUIREMENTS:
 - summary: ≤ 30 words, abstractive summary of the main issue/topic
 - key_issues: 1-3 short bullet points (array of strings), main problems/topics mentioned

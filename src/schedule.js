@@ -342,7 +342,7 @@ class ScheduleService {
           console.log(`📤 Sending daily report to channel: ${channel.channel_name} (${channel.report_name})`);
           
           // Create channel-specific Slack service
-          const channelSlack = new SlackService(channel.channel_id);
+          const channelSlack = new SlackService(channel.channel_id, channel.report_name);
           
           // Generate channel-specific report with categories if specified
           const report = await this.reportCreator.generateReport('daily', null, null, 'console', false, channel.categories);
@@ -402,7 +402,7 @@ class ScheduleService {
           console.log(`📤 Sending weekly report to channel: ${channel.channel_name} (${channel.report_name})`);
           
           // Create channel-specific Slack service
-          const channelSlack = new SlackService(channel.channel_id);
+          const channelSlack = new SlackService(channel.channel_id, channel.report_name);
           
           // Generate channel-specific report with categories if specified
           const report = await this.reportCreator.generateReport('weekly', null, null, 'console', false, channel.categories);
@@ -456,7 +456,7 @@ class ScheduleService {
           console.log(`📤 Sending monthly report to channel: ${channel.channel_name} (${channel.report_name})`);
           
           // Create channel-specific Slack service
-          const channelSlack = new SlackService(channel.channel_id);
+          const channelSlack = new SlackService(channel.channel_id, channel.report_name);
           
           // Generate channel-specific report with categories if specified
           const report = await this.reportCreator.generateReport('monthly', null, null, 'console', false, channel.categories);
@@ -510,7 +510,7 @@ class ScheduleService {
           console.log(`📤 Sending quarterly report to channel: ${channel.channel_name} (${channel.report_name})`);
           
           // Create channel-specific Slack service
-          const channelSlack = new SlackService(channel.channel_id);
+          const channelSlack = new SlackService(channel.channel_id, channel.report_name);
           
           // Generate channel-specific report with categories if specified
           const report = await this.reportCreator.generateReport('quarterly', null, null, 'console', false, channel.categories);
@@ -564,7 +564,7 @@ class ScheduleService {
           console.log(`📤 Sending yearly report to channel: ${channel.channel_name} (${channel.report_name})`);
           
           // Create channel-specific Slack service
-          const channelSlack = new SlackService(channel.channel_id);
+          const channelSlack = new SlackService(channel.channel_id, channel.report_name);
           
           // Generate channel-specific report with categories if specified
           const report = await this.reportCreator.generateReport('yearly', null, null, 'console', false, channel.categories);
@@ -634,8 +634,13 @@ class ScheduleService {
 
     const emoji = periodEmoji[reportType] || '📊';
     
-    // Create title without categories
+    // Create title with report name if it's a configured report
     let title = `${reportType.toUpperCase()} ANALYSIS REPORT`;
+    
+    // Add report name to title if this is a configured report
+    if (channelSlack.reportName) {
+      title = `${channelSlack.reportName} - ${title}`;
+    }
     
     // Create main summary message with new format
     const mainMessage = {
@@ -786,8 +791,13 @@ class ScheduleService {
 
       const emoji = periodEmoji[reportType] || '📊';
       
-      // Create title without categories
+      // Create title with report name if it's a configured report
       let title = `${reportType.toUpperCase()} ANALYSIS REPORT`;
+      
+      // Add report name to title if this is a configured report
+      if (channelSlack.reportName) {
+        title = `${channelSlack.reportName} - ${title}`;
+      }
       
     // Create main summary message with new format
     const mainMessage = {
@@ -1061,8 +1071,8 @@ class ScheduleService {
                 });
               });
 
-        // Overall stats
-        if (report.moderatorAnalysis && report.moderatorAnalysis.totalPosts > 0) {
+        // Overall stats - show even if no moderator responses
+        if (report.moderatorAnalysis) {
           const moderatorAnalysis = report.moderatorAnalysis;
           const responseTimeText = moderatorAnalysis.avgFirstResponseTimeMinutes > 0 
             ? `${moderatorAnalysis.avgFirstResponseTimeMinutes} minutes` 

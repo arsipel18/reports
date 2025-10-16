@@ -465,6 +465,75 @@ class OneTimeAnalysis {
   }
 
   /**
+   * Check for post author positive comments and update post sentiment
+   */
+  async checkPostAuthorPositiveComments() {
+    console.log('🔍 Checking for post author positive comments...');
+    
+    try {
+      // Get posts where the author has commented with positive sentiment
+      const queryText = `
+        SELECT DISTINCT p.id as post_id, p.author, ap.sentiment as current_sentiment, ap.sentiment_before_comment
+        FROM posts p
+        JOIN analyses_post ap ON p.id = ap.post_id
+        JOIN comments c ON p.id = c.post_id AND c.author = p.author
+        JOIN analyses_comment ac ON c.id = ac.comment_id
+        WHERE ac.sentiment = 'pos' 
+        AND ac.intent = 'comment'
+        AND (ap.sentiment_before_comment IS NULL OR ap.sentiment != 'pos')
+        AND p.created_utc >= EXTRACT(EPOCH FROM NOW() - INTERVAL '7 days') * 1000
+        ORDER BY p.created_utc DESC
+      `;
+      
+      const result = await query(queryText);
+      
+      if (result.rows.length === 0) {
+        console.log('✅ No post author positive comments found');
+        return { updated: 0 };
+      }
+      
+      console.log(`📝 Found ${result.rows.length} posts with author positive comments`);
+      
+      let updatedCount = 0;
+      
+      for (const row of result.rows) {
+        try {
+          // Store original sentiment if not already stored
+          if (!row.sentiment_before_comment) {
+            await query(`
+              UPDATE analyses_post 
+              SET sentiment_before_comment = $1 
+              WHERE post_id = $2
+            `, [row.current_sentiment, row.post_id]);
+            
+            console.log(`💾 Stored original sentiment '${row.current_sentiment}' for post ${row.post_id}`);
+          }
+          
+          // Update post sentiment to positive
+          await query(`
+            UPDATE analyses_post 
+            SET sentiment = 'pos' 
+            WHERE post_id = $1
+          `, [row.post_id]);
+          
+          console.log(`✅ Updated post ${row.post_id} sentiment to positive (author: ${row.author})`);
+          updatedCount++;
+          
+        } catch (error) {
+          console.error(`❌ Error updating post ${row.post_id}:`, error);
+        }
+      }
+      
+      console.log(`🎉 Updated ${updatedCount} posts with positive sentiment from author comments`);
+      return { updated: updatedCount };
+      
+    } catch (error) {
+      console.error('❌ Error checking post author positive comments:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Wait for specified delay
    */
   async wait() {
@@ -703,11 +772,17 @@ class OneTimeAnalysis {
         console.log('✅ No comments with null intent found');
       }
       
+      // Step 4: Check for post author positive comments and update sentiment
+      console.log('\n🔍 Checking for post author positive comments...');
+      const sentimentUpdateResult = await this.checkPostAuthorPositiveComments();
+      console.log(`✅ Sentiment update complete: ${sentimentUpdateResult.updated} posts updated`);
+      
       const duration = Math.round((Date.now() - startTime) / 1000);
       console.log('\n🎉 One-time analysis completed!');
       console.log(`📊 Results:`);
       console.log(`  • Posts analyzed: ${postSuccessCount} successful, ${postFailCount} failed`);
       console.log(`  • Comments analyzed: ${totalCommentsAnalyzed}`);
+      console.log(`  • Posts with sentiment updated: ${sentimentUpdateResult.updated}`);
       console.log(`  • Total time: ${duration} seconds`);
       console.log(`  • Average time per post: ${Math.round(duration / posts.length)} seconds`);
       

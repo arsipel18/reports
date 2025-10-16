@@ -4,9 +4,10 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 class SlackService {
-  constructor(channelId = null) {
+  constructor(channelId = null, reportName = null) {
     this.client = new WebClient(process.env.SLACK_BOT_TOKEN);
     this.channelId = channelId || process.env.SLACK_CHANNEL_ID;
+    this.reportName = reportName;
     
     if (!process.env.SLACK_BOT_TOKEN) {
       throw new Error('SLACK_BOT_TOKEN is required');
@@ -15,7 +16,7 @@ class SlackService {
       throw new Error('SLACK_CHANNEL_ID is required');
     }
     
-    console.log(`📱 Slack service initialized for channel: ${this.channelId}`);
+    console.log(`📱 Slack service initialized for channel: ${this.channelId}${reportName ? ` (${reportName})` : ''}`);
   }
 
   /**

@@ -159,7 +159,10 @@ CRITICAL CLASSIFICATION RULES - FOLLOW EXACTLY:
 
 3. SENTIMENT:
    - sentiment MUST be EXACTLY 'pos' (positive), 'neg' (negative), or 'neu' (neutral)
-   - This refers to sentiment
+   - POSITIVE SENTIMENT: Use 'pos' for expressions of satisfaction, gratitude, thanks, appreciation, or positive feedback
+   - Examples of POSITIVE sentiment: "Thank you!", "That helped!", "Perfect!", "Great!", "Appreciate it!", "Solved!", "Works now!", "Much better!", "Exactly what I needed!"
+   - NEGATIVE SENTIMENT: Use 'neg' for complaints, frustration, anger, disappointment, or criticism
+   - NEUTRAL SENTIMENT: Use 'neu' for factual statements, questions, or neutral observations
 
 4. CATEGORY (single primary category from this EXACT set):
    ['account_recovery','verification','2fa','matchmaking_issues','game_registration_issues','afk_leaver_bans','griefing','verbal_abuse','smurfs','cheaters','anti_cheat','subscriptions','faceit_shop','technical_client','platform_website','steam_issues_game_update','tournaments_leagues','esea','mission','moderation_community','feature_request','track_stats','ow2','dota2','legal_issues_gdpr','other']
@@ -225,6 +228,16 @@ Example 3 - Steam Comment:
   "category": "steam_issues_game_update",
   "summary": "User having Steam technical issues", 
   "key_issues": ["steam"]
+}
+
+Example 4 - Positive Satisfaction Comment:
+{
+  "intent": "comment",
+  "target": "faceit",
+  "sentiment": "pos",
+  "category": "other",
+  "summary": "User expressing gratitude for help received",
+  "key_issues": ["satisfaction", "gratitude"]
 }
 
 SPECIAL CASE - USER TAGGING ONLY:

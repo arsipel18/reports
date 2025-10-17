@@ -8,6 +8,7 @@ import ChannelConfigService from './channel_config_service.js';
 import { ReportCreator } from './report_creator.js';
 import { postReportAsPNG, postReportWithRetry } from './send-to-slack.js';
 import { closeDb } from './db.js';
+import { updateModeratorTrackingForScheduler } from './update_moderator_tracking_scheduler.js';
 
 dotenv.config();
 
@@ -63,6 +64,15 @@ class ScheduleService {
         timezone: 'UTC'
       });
       this.tasks.set('daily', dailyTask);
+
+      // Moderator tracking update: Every 48 hours at 00:30 UTC (every other day)
+      const moderatorTrackingTask = cron.schedule('30 0 */2 * *', async () => {
+        await this.safeTaskExecution('moderator_tracking', () => this.runModeratorTrackingTask());
+      }, {
+        scheduled: false,
+        timezone: 'UTC'
+      });
+      this.tasks.set('moderator_tracking', moderatorTrackingTask);
 
       // Weekly task: 23:30 every Sunday UTC
       const weeklyTask = cron.schedule('30 23 * * 0', async () => {
@@ -375,6 +385,25 @@ class ScheduleService {
       
     } catch (error) {
       console.error('❌ Daily task failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Run moderator tracking update task (every 48 hours)
+   */
+  async runModeratorTrackingTask() {
+    console.log('👮 Starting moderator tracking update task...');
+    
+    try {
+      console.log('🔄 Updating moderator tracking tables...');
+      
+      await updateModeratorTrackingForScheduler();
+      
+      console.log('✅ Moderator tracking update completed successfully');
+      
+    } catch (error) {
+      console.error('❌ Moderator tracking update failed:', error);
       throw error;
     }
   }
@@ -1109,6 +1138,10 @@ class ScheduleService {
       case 'daily':
         await this.safeTaskExecution('daily', () => this.runDailyTask());
         break;
+      case 'moderator_tracking':
+      case 'moderator':
+        await this.safeTaskExecution('moderator_tracking', () => this.runModeratorTrackingTask());
+        break;
       case 'weekly':
         await this.safeTaskExecution('weekly', () => this.runWeeklyTask());
         break;
@@ -1168,6 +1201,16 @@ class ScheduleService {
       nextDaily.setDate(nextDaily.getDate() + 1);
     }
     nextRuns.daily = nextDaily.toISOString();
+    
+    // Moderator tracking: next occurrence (every 48 hours at 00:30)
+    const nextModerator = new Date(now);
+    nextModerator.setHours(0, 30, 0, 0);
+    // Check if it's an even day (every other day)
+    const isEvenDay = now.getDate() % 2 === 0;
+    if (nextModerator <= now || !isEvenDay) {
+      nextModerator.setDate(nextModerator.getDate() + (isEvenDay ? 1 : 2));
+    }
+    nextRuns.moderator_tracking = nextModerator.toISOString();
     
     // Weekly: next Sunday 23:30
     const nextWeekly = new Date(now);

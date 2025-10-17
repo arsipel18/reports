@@ -237,8 +237,17 @@ class RealisticRedditFetcher {
       console.log(`✅ Updated post ${postData.id}: score=${score}, comments=${numComments}, upvote_ratio=${upvoteRatio.toFixed(2)}`);
       
       // Process new comments if comment count increased
-      if (updatedData.num_comments > postData.num_comments) {
-        console.log(`📈 Post ${postData.id} has new comments (${postData.num_comments} -> ${updatedData.num_comments})`);
+      // Always fetch comments for recent posts (last 48 hours) or if comment count increased
+      const postAgeHours = (Date.now() - postData.created_utc) / (1000 * 60 * 60);
+      const shouldFetchComments = updatedData.num_comments > postData.num_comments || postAgeHours <= 48;
+      
+      if (shouldFetchComments) {
+        if (updatedData.num_comments > postData.num_comments) {
+          console.log(`📈 Post ${postData.id} has new comments (${postData.num_comments} -> ${updatedData.num_comments})`);
+        } else {
+          console.log(`🕒 Post ${postData.id} is recent (${Math.round(postAgeHours)}h old), fetching comments`);
+        }
+        
         const newCommentsCount = await this.processPostComments(postData.id, submission);
         console.log(`💬 Processed ${newCommentsCount} new comments for post ${postData.id}`);
       }

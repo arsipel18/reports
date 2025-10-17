@@ -476,6 +476,7 @@ class ReportCreator {
    * Get top 5 moderator commenters with their stats
    */
   async getTop5ModeratorCommenters(startTime, endTime, categories = null) {
+    // First get the basic moderator stats
     let queryText = `
       SELECT 
         c.author as moderator_username,
@@ -484,12 +485,10 @@ class ReportCreator {
         AVG(c.score) as avg_comment_score,
         AVG(CASE WHEN ac.sentiment = 'pos' THEN 1 ELSE 0 END) as positive_sentiment_ratio,
         AVG(CASE WHEN ac.sentiment = 'neg' THEN 1 ELSE 0 END) as negative_sentiment_ratio,
-        AVG(CASE WHEN ac.sentiment = 'neu' THEN 1 ELSE 0 END) as neutral_sentiment_ratio,
-        AVG(mr.response_time_seconds) as avg_response_time_seconds
+        AVG(CASE WHEN ac.sentiment = 'neu' THEN 1 ELSE 0 END) as neutral_sentiment_ratio
       FROM comments c
       JOIN posts p ON c.post_id = p.id
       LEFT JOIN analyses_comment ac ON c.id = ac.comment_id
-      LEFT JOIN moderator_responses mr ON c.id = mr.comment_id
       WHERE c.distinguished = 'moderator'
         AND p.created_utc >= $1 AND p.created_utc <= $2
     `;
@@ -512,13 +511,36 @@ class ReportCreator {
     `;
     
     const result = await query(queryText, params);
-    return result.rows.map(moderator => ({
-      ...moderator,
-      avg_response_time_minutes: moderator.avg_response_time_seconds ? Math.round(moderator.avg_response_time_seconds / 60) : null,
-      positive_sentiment_percentage: Math.round((moderator.positive_sentiment_ratio || 0) * 100),
-      negative_sentiment_percentage: Math.round((moderator.negative_sentiment_ratio || 0) * 100),
-      neutral_sentiment_percentage: Math.round((moderator.neutral_sentiment_ratio || 0) * 100)
-    }));
+    
+    // Now calculate response times separately for each moderator
+    const moderatorsWithTimes = await Promise.all(
+      result.rows.map(async (moderator) => {
+        const responseTimeQuery = `
+          SELECT AVG(mr.response_time_seconds) as avg_response_time_seconds
+          FROM moderator_responses mr
+          JOIN comments c ON mr.comment_id = c.id
+          JOIN posts p ON mr.post_id = p.id
+          WHERE c.author = $1
+            AND c.distinguished = 'moderator'
+            AND p.created_utc >= $2 AND p.created_utc <= $3
+        `;
+        
+        const timeParams = [moderator.moderator_username, startTime, endTime];
+        const timeResult = await query(responseTimeQuery, timeParams);
+        const avgResponseTimeSeconds = parseFloat(timeResult.rows[0]?.avg_response_time_seconds) || null;
+        
+        return {
+          ...moderator,
+          avg_response_time_seconds: avgResponseTimeSeconds,
+          avg_response_time_minutes: avgResponseTimeSeconds ? Math.round(avgResponseTimeSeconds / 60) : null,
+          positive_sentiment_percentage: Math.round((moderator.positive_sentiment_ratio || 0) * 100),
+          negative_sentiment_percentage: Math.round((moderator.negative_sentiment_ratio || 0) * 100),
+          neutral_sentiment_percentage: Math.round((moderator.neutral_sentiment_ratio || 0) * 100)
+        };
+      })
+    );
+    
+    return moderatorsWithTimes;
   }
 
   /**
@@ -679,13 +701,10 @@ class ReportCreator {
     let queryText = `
       SELECT 
         COUNT(DISTINCT p.id) as total_posts,
-        COUNT(DISTINCT CASE WHEN mr.post_id IS NOT NULL THEN p.id END) as posts_with_moderator_response,
-        AVG(CASE WHEN mr.is_first_response = true THEN mr.response_time_seconds END) as avg_first_response_time_seconds,
-        COUNT(DISTINCT mr.moderator_username) as unique_moderators,
-        COUNT(mr.id) as total_moderator_responses
+        COUNT(DISTINCT CASE WHEN c.post_id IS NOT NULL THEN p.id END) as posts_with_moderator_response
       FROM posts p
       JOIN analyses_post ap ON p.id = ap.post_id
-      LEFT JOIN moderator_responses mr ON p.id = mr.post_id
+      LEFT JOIN comments c ON p.id = c.post_id AND c.distinguished = 'moderator'
       WHERE p.created_utc >= $1 AND p.created_utc <= $2
     `;
     
@@ -696,39 +715,63 @@ class ReportCreator {
       params.push(categories);
     }
     
-    // For filtered reports, we need a separate query to get moderator stats for filtered categories only
-    let filteredModeratorQuery = `
+    // Get moderator stats separately to avoid NULL issues with LEFT JOIN
+    // Use the same data source as Top 5 Moderator Commenters (comments table)
+    let moderatorStatsQuery = `
       SELECT 
-        COUNT(DISTINCT mr.moderator_username) as filtered_unique_moderators,
-        COUNT(mr.id) as filtered_total_moderator_responses
-      FROM moderator_responses mr
-      JOIN posts p ON mr.post_id = p.id
+        COUNT(DISTINCT c.author) as unique_moderators,
+        COUNT(c.id) as total_moderator_responses
+      FROM comments c
+      JOIN posts p ON c.post_id = p.id
       JOIN analyses_post ap ON p.id = ap.post_id
-      WHERE p.created_utc >= $1 AND p.created_utc <= $2
-        AND ap.category = ANY($3)
+      WHERE c.distinguished = 'moderator'
+        AND p.created_utc >= $1 AND p.created_utc <= $2
     `;
     
-    const filteredParams = [startTime, endTime];
+    // Separate query for average response time (using moderator_responses table)
+    let responseTimeQuery = `
+      SELECT 
+        AVG(mr.response_time_seconds) as avg_first_response_time_seconds
+      FROM moderator_responses mr
+      JOIN comments c ON mr.comment_id = c.id
+      JOIN posts p ON mr.post_id = p.id
+      JOIN analyses_post ap ON p.id = ap.post_id
+      WHERE c.distinguished = 'moderator'
+        AND p.created_utc >= $1 AND p.created_utc <= $2
+    `;
+    
+    const moderatorParams = [startTime, endTime];
+    const responseTimeParams = [startTime, endTime];
+    
+    // Add category filter to moderator stats if needed
+    if (categories && categories.length > 0) {
+      moderatorStatsQuery += ` AND ap.category = ANY($3)`;
+      moderatorParams.push(categories);
+      
+      // Add category filter to response time query
+      responseTimeQuery = responseTimeQuery.replace(
+        'WHERE p.created_utc >= $1 AND p.created_utc <= $2',
+        'WHERE p.created_utc >= $1 AND p.created_utc <= $2 AND ap.category = ANY($3)'
+      );
+      responseTimeParams.push(categories);
+    }
     
     const result = await query(queryText, params);
     const row = result.rows[0];
     
     const totalPosts = parseInt(row.total_posts) || 0;
     const postsWithModeratorResponse = parseInt(row.posts_with_moderator_response) || 0;
-    const avgFirstResponseTimeSeconds = parseFloat(row.avg_first_response_time_seconds) || 0;
     
-    // For filtered reports, get moderator stats for filtered categories only
-    let uniqueModerators = parseInt(row.unique_moderators) || 0;
-    let totalModeratorResponses = parseInt(row.total_moderator_responses) || 0;
+    // Get moderator stats separately to avoid NULL issues with LEFT JOIN
+    const moderatorResult = await query(moderatorStatsQuery, moderatorParams);
+    const moderatorRow = moderatorResult.rows[0];
+    const uniqueModerators = parseInt(moderatorRow.unique_moderators) || 0;
+    const totalModeratorResponses = parseInt(moderatorRow.total_moderator_responses) || 0;
     
-    if (categories && categories.length > 0) {
-      // Get moderator stats for filtered categories only
-      filteredParams.push(categories);
-      const filteredResult = await query(filteredModeratorQuery, filteredParams);
-      const filteredRow = filteredResult.rows[0];
-      uniqueModerators = parseInt(filteredRow.filtered_unique_moderators) || 0;
-      totalModeratorResponses = parseInt(filteredRow.filtered_total_moderator_responses) || 0;
-    }
+    // Get average response time separately
+    const responseTimeResult = await query(responseTimeQuery, responseTimeParams);
+    const responseTimeRow = responseTimeResult.rows[0];
+    const avgFirstResponseTimeSeconds = parseFloat(responseTimeRow.avg_first_response_time_seconds) || 0;
     
     const moderatorResponsePercentage = totalPosts > 0 ? Math.round((postsWithModeratorResponse / totalPosts) * 100) : 0;
     const avgFirstResponseTimeMinutes = Math.round(avgFirstResponseTimeSeconds / 60);

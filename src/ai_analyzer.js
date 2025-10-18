@@ -473,7 +473,7 @@ class OneTimeAnalysis {
     try {
       // Get posts where the author has commented with positive sentiment
       const queryText = `
-        SELECT DISTINCT p.id as post_id, p.author, ap.sentiment as current_sentiment, ap.sentiment_before_comment
+        SELECT DISTINCT p.id as post_id, p.author, ap.sentiment as current_sentiment, ap.sentiment_before_comment, p.created_utc
         FROM posts p
         JOIN analyses_post ap ON p.id = ap.post_id
         JOIN comments c ON p.id = c.post_id AND c.author = p.author

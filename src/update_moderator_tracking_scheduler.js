@@ -45,7 +45,7 @@ export async function updateModeratorTrackingForScheduler() {
     
     // Find posts with moderator comments that need tracking
     const postsWithModeratorsResult = await pool.query(`
-      SELECT DISTINCT p.id, p.title
+      SELECT DISTINCT p.id, p.title, p.created_utc
       FROM posts p
       JOIN comments c ON p.id = c.post_id
       WHERE c.distinguished = 'moderator'

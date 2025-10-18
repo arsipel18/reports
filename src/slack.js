@@ -328,6 +328,20 @@ class SlackService {
       return result;
     } catch (error) {
       console.error('❌ Failed to post message to Slack:', error);
+      
+      // Handle specific Slack API errors
+      if (error.data && error.data.error === 'channel_not_found') {
+        console.error(`❌ Channel ${this.channelId} not found - bot may not be added to this channel`);
+        // Don't throw error for channel_not_found to prevent cascading failures
+        return null;
+      } else if (error.data && error.data.error === 'not_in_channel') {
+        console.error(`❌ Bot not in channel ${this.channelId} - please add bot to channel`);
+        return null;
+      } else if (error.data && error.data.error === 'invalid_auth') {
+        console.error(`❌ Invalid Slack authentication - check bot token`);
+        throw error;
+      }
+      
       throw error;
     }
   }

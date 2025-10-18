@@ -749,10 +749,7 @@ class ReportCreator {
       moderatorParams.push(categories);
       
       // Add category filter to response time query
-      responseTimeQuery = responseTimeQuery.replace(
-        'WHERE p.created_utc >= $1 AND p.created_utc <= $2',
-        'WHERE p.created_utc >= $1 AND p.created_utc <= $2 AND ap.category = ANY($3)'
-      );
+      responseTimeQuery += ` AND ap.category = ANY($3)`;
       responseTimeParams.push(categories);
     }
     

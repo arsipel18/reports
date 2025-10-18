@@ -183,12 +183,22 @@ export async function safePuppeteerLaunch(config, operation) {
   } catch (error) {
     console.error('❌ Puppeteer launch failed:', error.message);
     
+    // Handle specific Puppeteer errors
+    if (error.message.includes('Session closed') || error.message.includes('Protocol error')) {
+      console.log('🔄 Session closed error detected, trying minimal configuration...');
+    }
+    
     // Try fallback minimal configuration
     if (config !== getMinimalPuppeteerConfig()) {
       console.log('🔄 Trying minimal Puppeteer configuration...');
-      const minimalConfig = getMinimalPuppeteerConfig();
-      browser = await puppeteer.launch(minimalConfig);
-      return await operation(browser);
+      try {
+        const minimalConfig = getMinimalPuppeteerConfig();
+        browser = await puppeteer.launch(minimalConfig);
+        return await operation(browser);
+      } catch (minimalError) {
+        console.error('❌ Minimal Puppeteer configuration also failed:', minimalError.message);
+        throw minimalError;
+      }
     }
     
     throw error;

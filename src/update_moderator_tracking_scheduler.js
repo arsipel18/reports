@@ -24,7 +24,7 @@ export async function updateModeratorTrackingForScheduler() {
     
     // Initialize moderator tracking service
     const moderatorTracking = new ModeratorTrackingService();
-    await moderatorTracking.initialize();
+    await moderatorTracking.initializeTables();
     
     // Get current statistics
     const statsResult = await pool.query(`

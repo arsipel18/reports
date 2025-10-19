@@ -58,6 +58,9 @@ class ReportCreator {
       // Get all analyzed posts in the time range
       let posts = await this.getAnalyzedPosts(timeRange.start, timeRange.end);
       
+      // Store full posts dataset for timeseries generation
+      const allPosts = posts;
+      
       // Apply category filtering if specified
       if (categories && categories.length > 0) {
         posts = posts.filter(post => categories.includes(post.category));
@@ -113,6 +116,7 @@ class ReportCreator {
         top5ModeratorCommenters,
         recentActivity,
         posts,
+        allPosts, // Full posts dataset for timeseries generation
         commentAnalysis,
         commentExamples,
         moderatorAnalysis,
@@ -239,6 +243,7 @@ class ReportCreator {
     let queryText = `
       SELECT 
         COUNT(*) as total_posts,
+        COUNT(DISTINCT p.author) as unique_authors,
         COUNT(CASE WHEN ap.target = 'faceit' THEN 1 END) as faceit_posts,
         COUNT(CASE WHEN ap.intent = 'help' THEN 1 END) as help_posts,
         COUNT(CASE WHEN ap.intent = 'comment' THEN 1 END) as comment_posts,

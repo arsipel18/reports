@@ -37,6 +37,10 @@ export async function renderReportPNG(data) {
   };
   const trendVals = timeseries.posts || [];
   const trendLabels = timeseries.labels || (trendVals.length ? trendVals.map((_, i) => String(i + 1)) : []);
+  
+  // Ensure we always have some data for the chart to display
+  const safeTrendVals = trendVals.length > 0 ? trendVals : new Array(7).fill(0);
+  const safeTrendLabels = trendLabels.length > 0 ? trendLabels : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const commentsSpark = timeseries.comments || [];
   const calVals = timeseries.calendar && timeseries.calendar.length ? timeseries.calendar
                   : (trendVals.length ? trendVals.slice(-35) : []);
@@ -73,17 +77,21 @@ export async function renderReportPNG(data) {
   };
 
   const combo = (bars=[], line=[], labels=[], {w=1200,h=350,pad=60}={})=>{
-    if(!bars.length) return "";
-    const max = Math.max(...bars, ...(line.length?line:[0]));
-    const sx = (w-2*pad)/Math.max(1, bars.length-1);
+    // Always show the chart, even if bars are empty, as long as we have labels
+    if(!bars.length && !labels.length) return "";
+    
+    // Ensure we have some data to work with
+    const safeBars = bars.length > 0 ? bars : new Array(labels.length).fill(0);
+    const max = Math.max(...safeBars, ...(line.length?line:[0]));
+    const sx = (w-2*pad)/Math.max(1, safeBars.length-1);
     const sy = (h-2*pad)/(max||1);
-    const barW = Math.min(40, (w-2*pad)/bars.length * 0.6);
+    const barW = Math.min(40, (w-2*pad)/safeBars.length * 0.6);
     const gridY=5, gy=[];
     for(let i=0;i<=gridY;i++){
       const y=pad+i*(h-2*pad)/gridY, val=Math.round(max - i*(max/gridY));
       gy.push(`<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="#E6E8EB"/><text x="${pad-12}" y="${y+5}" text-anchor="end" font-size="14" fill="#667085">${val}</text>`);
     }
-    const barsSvg = bars.map((v,i)=>{
+    const barsSvg = safeBars.map((v,i)=>{
       const x = pad + i*sx - barW/2;
       const y = h - pad - v*sy;
       const hh = Math.max(0, h - pad - y);
@@ -337,7 +345,7 @@ export async function renderReportPNG(data) {
     <!-- LEFT COLUMN -->
     <div class="main-content">
       <!-- Main Chart -->
-      ${trendVals.length ? `
+      ${`
       <div class="chart-container">
         <div class="chart-title">
           <div class="chart-icon">📈</div>
@@ -346,13 +354,13 @@ export async function renderReportPNG(data) {
         <div class="chart-subtitle" style="font-size:12px;color:var(--mut);margin-bottom:12px">
           📊 ${period === 'quarterly' ? 'Weekly activity levels' : period === 'yearly' ? 'Monthly activity levels' : 'Daily activity levels'} • 🔴 Average score baseline (${totals.scoreAvg})
         </div>
-        ${combo(trendVals, Array(trendVals.length).fill(totals.scoreAvg), trendLabels, {w:800,h:350,pad:60})}
+        ${combo(safeTrendVals, Array(safeTrendVals.length).fill(totals.scoreAvg), safeTrendLabels, {w:800,h:350,pad:60})}
         <div class="chart-legend" style="display:flex;justify-content:space-between;margin-top:12px;font-size:11px;color:var(--mut)">
           <div>📊 ${period === 'quarterly' ? 'Weekly Activity' : period === 'yearly' ? 'Monthly Activity' : 'Daily Activity'}</div>
           <div>🔴 Avg Score Baseline</div>
           <div>📈 Trend Analysis</div>
         </div>
-      </div>` : ""}
+      </div>`}
 
       <!-- Top Posts -->
       <div class="card">

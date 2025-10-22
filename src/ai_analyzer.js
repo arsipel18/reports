@@ -472,6 +472,7 @@ class OneTimeAnalysis {
     
     try {
       // Get posts where the author has commented with positive sentiment
+      // FIXED: Only update posts that are NOT already positive
       const queryText = `
         SELECT DISTINCT p.id as post_id, p.author, ap.sentiment as current_sentiment, ap.sentiment_before_comment, p.created_utc
         FROM posts p
@@ -480,8 +481,7 @@ class OneTimeAnalysis {
         JOIN analyses_comment ac ON c.id = ac.comment_id
         WHERE ac.sentiment = 'pos' 
         AND ac.intent = 'comment'
-        AND (ap.sentiment_before_comment IS NULL OR ap.sentiment != 'pos')
-        AND p.created_utc >= EXTRACT(EPOCH FROM NOW() - INTERVAL '7 days') * 1000
+        AND ap.sentiment != 'pos'  -- FIXED: Only update posts that are NOT already positive
         ORDER BY p.created_utc DESC
       `;
       

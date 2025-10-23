@@ -27,9 +27,9 @@ export function adaptReportDataForPNG(reportCreatorData) {
   } = reportCreatorData;
 
   // Generate missing timeseries data
-  // For filtered reports, use filtered posts; for unfiltered reports, use all posts
-  // This ensures trend chart shows appropriate data based on filtering
-  const timeseries = generateTimeseriesData(posts, period);
+  // Always use allPosts for timeseries to show overall activity trend
+  // Only filter the summary data, not the trend chart
+  const timeseries = generateTimeseriesData(allPosts.length > 0 ? allPosts : posts, period);
   
   // Generate missing category series data
   const categorySeries = generateCategorySeriesData(posts, categories, period);

@@ -82,14 +82,13 @@ export function adaptReportDataForPNG(reportCreatorData) {
  */
 function generateTimeseriesData(posts, period) {
   if (!posts || posts.length === 0) {
-    // For filtered reports with no data, generate minimal trend data to keep chart visible
-    // This ensures the trend chart always appears even with filtered empty results
-    const days = getDaysForPeriod(period);
+    // For filtered reports with no data, return empty arrays to indicate no data
+    // The chart will handle this gracefully
     return {
-      posts: new Array(days.length).fill(0),
-      comments: new Array(days.length).fill(0),
-      labels: generateLabelsForPeriod(days, period),
-      calendar: new Array(35).fill(0)
+      posts: [],
+      comments: [],
+      labels: [],
+      calendar: []
     };
   }
 

@@ -39,7 +39,8 @@ export async function renderReportPNG(data) {
   const trendLabels = timeseries.labels || (trendVals.length ? trendVals.map((_, i) => String(i + 1)) : []);
   
   // Handle empty data gracefully - show "No Data" message instead of flat line
-  const hasData = trendVals.length > 0 && trendVals.some(val => val > 0);
+  // Show chart if there are posts in summary OR if there are trend values
+  const hasData = totals.posts > 0 || trendVals.length > 0;
   const safeTrendVals = hasData ? trendVals : [];
   const safeTrendLabels = hasData ? trendLabels : [];
   const commentsSpark = timeseries.comments || [];

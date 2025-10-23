@@ -38,9 +38,10 @@ export async function renderReportPNG(data) {
   const trendVals = timeseries.posts || [];
   const trendLabels = timeseries.labels || (trendVals.length ? trendVals.map((_, i) => String(i + 1)) : []);
   
-  // Ensure we always have some data for the chart to display
-  const safeTrendVals = trendVals.length > 0 ? trendVals : new Array(7).fill(0);
-  const safeTrendLabels = trendLabels.length > 0 ? trendLabels : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  // Handle empty data gracefully - show "No Data" message instead of flat line
+  const hasData = trendVals.length > 0 && trendVals.some(val => val > 0);
+  const safeTrendVals = hasData ? trendVals : [];
+  const safeTrendLabels = hasData ? trendLabels : [];
   const commentsSpark = timeseries.comments || [];
   const calVals = timeseries.calendar && timeseries.calendar.length ? timeseries.calendar
                   : (trendVals.length ? trendVals.slice(-35) : []);
@@ -354,12 +355,15 @@ export async function renderReportPNG(data) {
         <div class="chart-subtitle" style="font-size:12px;color:var(--mut);margin-bottom:12px">
           📊 ${period === 'quarterly' ? 'Weekly activity levels' : period === 'yearly' ? 'Monthly activity levels' : 'Daily activity levels'} • 🔴 Average score baseline (${totals.scoreAvg})
         </div>
-        ${combo(safeTrendVals, Array(safeTrendVals.length).fill(totals.scoreAvg), safeTrendLabels, {w:800,h:350,pad:60})}
-        <div class="chart-legend" style="display:flex;justify-content:space-between;margin-top:12px;font-size:11px;color:var(--mut)">
+        ${hasData ? combo(safeTrendVals, Array(safeTrendVals.length).fill(totals.scoreAvg), safeTrendLabels, {w:800,h:350,pad:60}) : 
+          `<div style="display:flex;align-items:center;justify-content:center;height:350px;color:var(--mut);font-size:16px;font-weight:500">
+            📊 No activity data available for this period
+          </div>`}
+        ${hasData ? `<div class="chart-legend" style="display:flex;justify-content:space-between;margin-top:12px;font-size:11px;color:var(--mut)">
           <div>📊 ${period === 'quarterly' ? 'Weekly Activity' : period === 'yearly' ? 'Monthly Activity' : 'Daily Activity'}</div>
           <div>🔴 Avg Score Baseline</div>
           <div>📈 Trend Analysis</div>
-        </div>
+        </div>` : ''}
       </div>`}
 
       <!-- Top Posts -->

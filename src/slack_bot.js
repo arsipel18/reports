@@ -557,27 +557,8 @@ class SlackBot {
       console.error('❌ Slack app error:', error);
     });
 
-    // Handle WebSocket connection events
-    this.app.client.socketMode.on('disconnect', () => {
-      console.log('🔌 WebSocket disconnected, attempting to reconnect...');
-    });
-
-    this.app.client.socketMode.on('reconnect', () => {
-      console.log('✅ WebSocket reconnected successfully');
-    });
-
-    this.app.client.socketMode.on('error', (error) => {
-      console.error('❌ WebSocket error:', error);
-    });
-
-    // Handle connection state changes
-    this.app.client.socketMode.on('connecting', () => {
-      console.log('🔄 WebSocket connecting...');
-    });
-
-    this.app.client.socketMode.on('connected', () => {
-      console.log('✅ WebSocket connected successfully');
-    });
+    // Note: WebSocket connection events will be set up in start() method
+    // after the app is initialized
   }
 
   /**
@@ -604,6 +585,9 @@ class SlackBot {
       console.log('  • @Reddit FACEIT App - Mention the bot for status/help');
       console.log('⏰ Bot is now listening for events...');
       
+      // Set up WebSocket connection events after app is started
+      this.setupSocketModeEvents();
+      
       // Start connection health monitoring
       this.startConnectionMonitoring();
       
@@ -614,13 +598,59 @@ class SlackBot {
   }
 
   /**
+   * Setup WebSocket connection event handlers
+   */
+  setupSocketModeEvents() {
+    try {
+      // Check if socketMode is available
+      if (!this.app.client || !this.app.client.socketMode) {
+        console.warn('⚠️ SocketMode not available, skipping WebSocket event setup');
+        return;
+      }
+
+      const socketMode = this.app.client.socketMode;
+
+      // Handle WebSocket connection events
+      socketMode.on('disconnect', () => {
+        console.log('🔌 WebSocket disconnected, attempting to reconnect...');
+      });
+
+      socketMode.on('reconnect', () => {
+        console.log('✅ WebSocket reconnected successfully');
+      });
+
+      socketMode.on('error', (error) => {
+        console.error('❌ WebSocket error:', error);
+      });
+
+      // Handle connection state changes
+      socketMode.on('connecting', () => {
+        console.log('🔄 WebSocket connecting...');
+      });
+
+      socketMode.on('connected', () => {
+        console.log('✅ WebSocket connected successfully');
+      });
+
+      console.log('🔌 WebSocket event handlers configured');
+    } catch (error) {
+      console.error('❌ Error setting up WebSocket events:', error);
+    }
+  }
+
+  /**
    * Monitor WebSocket connection health
    */
   startConnectionMonitoring() {
     // Check connection status every 5 minutes
     this.connectionMonitorInterval = setInterval(() => {
-      const socketMode = this.app.client.socketMode;
-      if (socketMode) {
+      try {
+        if (!this.app.client || !this.app.client.socketMode) {
+          console.log('🔍 Connection Status: SocketMode not available');
+          return;
+        }
+
+        const socketMode = this.app.client.socketMode;
         const isConnected = socketMode.isConnected();
         const connectionState = socketMode.getState();
         console.log(`🔍 Connection Status: ${isConnected ? 'Connected' : 'Disconnected'} (State: ${connectionState})`);
@@ -629,6 +659,8 @@ class SlackBot {
           console.log('⚠️ WebSocket disconnected, attempting manual reconnection...');
           socketMode.connect();
         }
+      } catch (error) {
+        console.error('❌ Error monitoring connection:', error);
       }
     }, 5 * 60 * 1000); // Check every 5 minutes
   }

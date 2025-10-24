@@ -18,7 +18,17 @@ class SlackBot {
       socketMode: true,
       appToken: process.env.SLACK_APP_TOKEN,
       processBeforeResponse: false, // CRITICAL: prevent dispatch_failed
-      logLevel: process.env.SLACK_LOG_LEVEL || 'info'
+      logLevel: process.env.SLACK_LOG_LEVEL || 'info',
+      // WebSocket connection improvements
+      clientPingTimeout: parseInt(process.env.SLACK_PING_TIMEOUT) || 10000, // Increase ping timeout to 10 seconds
+      autoReconnectEnabled: true, // Enable automatic reconnection
+      clientOptions: {
+        // Additional WebSocket options for better stability
+        pingInterval: parseInt(process.env.SLACK_PING_INTERVAL) || 30000, // Send ping every 30 seconds
+        pingTimeout: parseInt(process.env.SLACK_PING_TIMEOUT) || 10000, // Wait 10 seconds for pong response
+        reconnectInterval: parseInt(process.env.SLACK_RECONNECT_INTERVAL) || 5000, // Reconnect after 5 seconds on failure
+        maxReconnectAttempts: parseInt(process.env.SLACK_MAX_RECONNECT_ATTEMPTS) || 10 // Maximum reconnection attempts
+      }
     });
 
     this.commands = new SlackCommands();
@@ -546,6 +556,28 @@ class SlackBot {
     this.app.error((error) => {
       console.error('❌ Slack app error:', error);
     });
+
+    // Handle WebSocket connection events
+    this.app.client.socketMode.on('disconnect', () => {
+      console.log('🔌 WebSocket disconnected, attempting to reconnect...');
+    });
+
+    this.app.client.socketMode.on('reconnect', () => {
+      console.log('✅ WebSocket reconnected successfully');
+    });
+
+    this.app.client.socketMode.on('error', (error) => {
+      console.error('❌ WebSocket error:', error);
+    });
+
+    // Handle connection state changes
+    this.app.client.socketMode.on('connecting', () => {
+      console.log('🔄 WebSocket connecting...');
+    });
+
+    this.app.client.socketMode.on('connected', () => {
+      console.log('✅ WebSocket connected successfully');
+    });
   }
 
   /**
@@ -557,6 +589,12 @@ class SlackBot {
       console.log('📡 Bot Token:', process.env.SLACK_BOT_TOKEN ? 'Set' : 'Missing');
       console.log('🔐 Signing Secret:', process.env.SLACK_SIGNING_SECRET ? 'Set' : 'Missing');
       console.log('🔌 App Token:', process.env.SLACK_APP_TOKEN ? 'Set' : 'Missing');
+      console.log('⚙️ WebSocket Configuration:');
+      console.log(`  • Ping Timeout: ${parseInt(process.env.SLACK_PING_TIMEOUT) || 10000}ms`);
+      console.log('  • Auto Reconnect: Enabled');
+      console.log(`  • Ping Interval: ${parseInt(process.env.SLACK_PING_INTERVAL) || 30000}ms`);
+      console.log(`  • Reconnect Interval: ${parseInt(process.env.SLACK_RECONNECT_INTERVAL) || 5000}ms`);
+      console.log(`  • Max Reconnect Attempts: ${parseInt(process.env.SLACK_MAX_RECONNECT_ATTEMPTS) || 10}`);
       
       await this.app.start();
       console.log('🤖 Reddit FACEIT App Slack bot started successfully!');
@@ -566,6 +604,9 @@ class SlackBot {
       console.log('  • @Reddit FACEIT App - Mention the bot for status/help');
       console.log('⏰ Bot is now listening for events...');
       
+      // Start connection health monitoring
+      this.startConnectionMonitoring();
+      
     } catch (error) {
       console.error('❌ Failed to start Slack bot:', error);
       throw error;
@@ -573,10 +614,36 @@ class SlackBot {
   }
 
   /**
+   * Monitor WebSocket connection health
+   */
+  startConnectionMonitoring() {
+    // Check connection status every 5 minutes
+    this.connectionMonitorInterval = setInterval(() => {
+      const socketMode = this.app.client.socketMode;
+      if (socketMode) {
+        const isConnected = socketMode.isConnected();
+        const connectionState = socketMode.getState();
+        console.log(`🔍 Connection Status: ${isConnected ? 'Connected' : 'Disconnected'} (State: ${connectionState})`);
+        
+        if (!isConnected) {
+          console.log('⚠️ WebSocket disconnected, attempting manual reconnection...');
+          socketMode.connect();
+        }
+      }
+    }, 5 * 60 * 1000); // Check every 5 minutes
+  }
+
+  /**
    * Stop the Slack bot
    */
   async stop() {
     try {
+      // Clear connection monitoring interval
+      if (this.connectionMonitorInterval) {
+        clearInterval(this.connectionMonitorInterval);
+        console.log('🛑 Connection monitoring stopped');
+      }
+      
       await this.app.stop();
       console.log('🤖 Reddit FACEIT App Slack bot stopped');
     } catch (error) {
